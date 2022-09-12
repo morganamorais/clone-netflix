@@ -1,18 +1,27 @@
 package co.tiagoaguiar.netflixremake
 
+import android.graphics.Bitmap
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ImageView
-import android.widget.TextView
+import androidx.annotation.LayoutRes
 import androidx.recyclerview.widget.RecyclerView
 import co.tiagoaguiar.netflixremake.model.Movie
+import co.tiagoaguiar.netflixremake.util.DownloadImageTask
+import com.squareup.picasso.Picasso
 
-class MainAdapter(private val movies: List<Movie>) : RecyclerView.Adapter<MainAdapter.MovieViewHolder>() {
+// aqui é a lista HORIZONTAL
+class MovieAdapter(
+    private val movies: List<Movie>,
+    @LayoutRes private val layoutId: Int,
+    private  val onItemClickListener: ((Int) -> Unit)? = null
+    ) : RecyclerView.Adapter<MovieAdapter.MovieViewHolder>() {
 
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.movie_item, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(layoutId, parent, false)
         return MovieViewHolder(view)
     }
 
@@ -28,7 +37,25 @@ class MainAdapter(private val movies: List<Movie>) : RecyclerView.Adapter<MainAd
     inner class MovieViewHolder (itemView: View): RecyclerView.ViewHolder(itemView){
         fun bind(movie: Movie) {
         val imageCover: ImageView = itemView.findViewById(R.id.img_cover)
-           imageCover.setImageResource(movie.coverUrl)
+            imageCover.setOnClickListener{  /// click disponivel
+             onItemClickListener?.invoke(movie.id)
+            }
+
+
+            //aqui vai ser trocado por uma url que vira do servior
+            //imageCover.setImageResource(movie.coverUrl)
+
+            DownloadImageTask(object  : DownloadImageTask.Callback{
+                override fun onResult(bitmap: Bitmap) {
+                   imageCover.setImageBitmap(bitmap)
+                }
+            }).execute(movie.coverUrl)
+
+
+          /*  Picasso.get()
+                .load(movie.coverUrl)
+                .into(imageCover)
+*/
         }
 
     }

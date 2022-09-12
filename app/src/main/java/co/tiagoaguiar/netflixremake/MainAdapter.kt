@@ -7,7 +7,7 @@ import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import co.tiagoaguiar.netflixremake.model.Movie
 
-class MovieAdapter(private val movies: List<Movie>) : RecyclerView.Adapter<MovieAdapter.MovieViewHolder>() {
+class MainAdapter(private val movies: List<Movie>) : RecyclerView.Adapter<MainAdapter.MovieViewHolder>() {
 
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieViewHolder {
@@ -27,7 +27,7 @@ class MovieAdapter(private val movies: List<Movie>) : RecyclerView.Adapter<Movie
     inner class MovieViewHolder (itemView: View): RecyclerView.ViewHolder(itemView){
         fun bind(movie: Movie) {
         val imageCover: ImageView = itemView.findViewById(R.id.img_cover)
-           imageCover.setImageResource(movie.coverUrl)
+         //  imageCover.setImageResource(movie.coverUrl)
         }
 
     }

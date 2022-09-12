@@ -6,6 +6,7 @@ import android.os.Looper
 import android.util.Log
 import co.tiagoaguiar.netflixremake.model.Category
 import co.tiagoaguiar.netflixremake.model.Movie
+import co.tiagoaguiar.netflixremake.model.MovieDetail
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -16,19 +17,19 @@ import java.net.URL
 import java.util.concurrent.Executors
 import javax.net.ssl.HttpsURLConnection
 
-class CategoryTask (private val callback: Callback){
+class MovieTask(private val callback: Callback) {
 
-        private val handler = Handler(Looper.getMainLooper())
-        private val executor = Executors.newSingleThreadExecutor()
+    private val handler = Handler(Looper.getMainLooper())
+    private val executor = Executors.newSingleThreadExecutor()
 
-    interface Callback{
+    interface Callback {
         fun onPreExecute()
-        fun onResult(categories: List<Category>)
+        fun onResult(movieDetail: MovieDetail)
         fun onFailure(message: String)
     }
 
     fun execute(url: String) {
-            callback.onPreExecute()
+        callback.onPreExecute()
 
         executor.execute {
             var urlConnection: HttpsURLConnection? = null
@@ -36,38 +37,45 @@ class CategoryTask (private val callback: Callback){
             var stream: InputStream? = null
             try {
 
-            val requestURL = URL(url)// abrir uma url
-            urlConnection = requestURL.openConnection() as HttpsURLConnection // Abrir a conexão
-            urlConnection.readTimeout = 2000 // tempo de leitura (2s)
-            urlConnection.connectTimeout = 2000 // tempo de conexão do  ep com o servidor
+                val requestURL = URL(url)// abrir uma url
+                urlConnection = requestURL.openConnection() as HttpsURLConnection // Abrir a conexão
+                urlConnection.readTimeout = 2000 // tempo de leitura (2s)
+                urlConnection.connectTimeout = 2000 // tempo de conexão do  ep com o servido //
 
-            val statusCode = urlConnection.responseCode
-            if(statusCode > 400) {
-                throw IOException("Erro na comunicação com o servidor!")
-               }
+                val statusCode: Int = urlConnection.responseCode
 
-               stream = urlConnection.inputStream // sequencia de bytes
-               // primeira forma de fazer simples e rapida
+                if (statusCode == 400) {
+                    stream = urlConnection.errorStream
+                    buffer = BufferedInputStream(stream)
+                    val jsonAsString = toString(buffer)
+                    //aqui eu ja tenho o JSON
+                    val json = JSONObject(jsonAsString)
+                    val message = json.getString("message")
+                    throw IOException("Erro na comunicação com o servidor")
 
-                //val jsonAsString = stream.bufferedReader().use { it.readText() } // bytes em strings
+                } else if (statusCode > 400) {
+                    throw IOException("Erro na comunicação com o servidor!")
+                }
 
-               buffer =BufferedInputStream(stream)
+                stream = urlConnection.inputStream // sequencia de bytes
+
+                buffer = BufferedInputStream(stream)
                 val jsonAsString = toString(buffer)
 
-            val categories = toCategories(jsonAsString)
+                val movieDetail = toMovieDetail(jsonAsString)
 
                 handler.post {
-                    callback.onResult(categories)
+                    callback.onResult(movieDetail)
                 }
 
-            }catch (e: Exception) {
-                val message = e.message ?:"erro desconhecido"
+            } catch (e: Exception) {
+                val message = e.message ?: "erro desconhecido"
                 Log.e("Teste", message, e)
 
-                handler.post{
+                handler.post {
                     callback.onFailure(message)
                 }
-            }finally {
+            } finally {
                 urlConnection?.disconnect()
                 stream?.close()
                 buffer?.close()
@@ -75,41 +83,43 @@ class CategoryTask (private val callback: Callback){
         }
     }
 
-    private fun toCategories(jsonAsString: String) : List<Category>{
-        val categories = mutableListOf<Category>()
+    private fun toMovieDetail(jsonAsString: String): MovieDetail {
+        val json = JSONObject(jsonAsString)
 
-        val jsonRoot = JSONObject(jsonAsString)
-        val jsonCategories =  jsonRoot.getJSONArray("category")
-        for (i in 0 until jsonCategories.length()){
-            val jsonCategory = jsonCategories.getJSONObject(i)
+        val id = json.getInt("id")
+        val title = json.getString("title")
+        val desc = json.getString("desc")
+        val cast = json.getString("cast")
+        val coverUrl = json.getString("cover_url")
+        val jsonMovies = json.getJSONArray("movie")
 
-            val titles = jsonCategory.getString("title")
-            val jsonMovies = jsonCategory.getJSONArray("movie")
+        val similars = mutableListOf<Movie>()
+        for (i in 0 until jsonMovies.length()) {
+            val jsonMovie = jsonMovies.getJSONObject(i)
 
-            val movies = mutableListOf<Movie>()
-            for (j in 0 until jsonMovies.length()){
-                val jsonMovie = jsonMovies.getJSONObject(j)
-                val id = jsonMovie.getInt("id")
-                val coverUrl = jsonMovie.getString("cover_url")
+            val similarId = jsonMovie.getInt("id")
+            val similarCoverUrl = jsonMovie.getString("cover_url")
 
-                movies.add(Movie(id, coverUrl ))
-            }
-            categories.add(Category(titles, movies))
+            val m = Movie(similarId, similarCoverUrl)
+            similars.add(m)
         }
-        return  categories
+        val movie = Movie(id, coverUrl, title)
+        return MovieDetail(movie, similars)
+
     }
-    private fun toString(stream:InputStream ) : String{
-       val bytes = ByteArray(1024)
+
+    private fun toString(stream: InputStream): String {
+        val bytes = ByteArray(1024)
         val baos = ByteArrayOutputStream()
         var read: Int
-        while(true){
+        while (true) {
             read = stream.read(bytes)
-            if (read <= 0){
-            break
+            if (read <= 0) {
+                break
+            }
+            baos.write(bytes, 0, read)
         }
-           baos.write(bytes, 0,read)
-      }
-       return String(baos.toByteArray())
+        return String(baos.toByteArray())
     }
 
 }
